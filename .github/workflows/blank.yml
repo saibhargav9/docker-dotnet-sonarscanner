@@ -1,0 +1,24 @@
+name: BuildAndTest
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v1.7.2
+      with:
+        dotnet-version: 5.0.100
+    - uses: actions/checkout@v1
+    - name: Build with dotnet
+      working-directory: ./src
+      run: dotnet build --configuration Release
+    - name: SonarQube Quality Gate Check
+      uses: SonarSource/sonarqube-quality-gate-action@v1.0.0
+      env:
+        SONAR_TOKEN: 039c43988dcb9e1143816b374bfd0ce30831b061
+        SONAR_HOST_URL: http://localhost:9000
+    - name: Run Tests
+      working-directory: ./src
+      run: dotnet test
