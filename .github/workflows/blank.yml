@@ -1,22 +1,47 @@
-name: BuildAndTest
-
-on: [push]
-
+name: Build
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build
+    runs-on: windows-latest
     steps:
-    - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v1.7.2
-      with:
-        dotnet-version: 5.0.100
-    - uses: actions/checkout@v1
-
-    - name: SonarQube Quality Gate Check
-      uses: SonarSource/sonarqube-quality-gate-action@v1.0.0
-      env:
-        SONAR_TOKEN: 039c43988dcb9e1143816b374bfd0ce30831b061
-        SONAR_HOST_URL: http://localhost:9000
-    - name: Run Tests
-      working-directory: ./src
-      run: dotnet test
+      - name: Set up JDK 11
+        uses: actions/setup-java@v1
+        with:
+          java-version: 1.11
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v1
+        with:
+          path: ~\sonar\cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+      - name: Cache SonarCloud scanner
+        id: cache-sonar-scanner
+        uses: actions/cache@v1
+        with:
+          path: .\.sonar\scanner
+          key: ${{ runner.os }}-sonar-scanner
+          restore-keys: ${{ runner.os }}-sonar-scanner
+      - name: Install SonarCloud scanner
+        if: steps.cache-sonar-scanner.outputs.cache-hit != 'true'
+        shell: powershell
+        run: |
+          New-Item -Path .\.sonar\scanner -ItemType Directory
+          dotnet tool update dotnet-sonarscanner --tool-path .\.sonar\scanner
+      - name: Build and analyze
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: powershell
+        run: |
+          .\.sonar\scanner\dotnet-sonarscanner begin /k:"sai" /o:"saibhargav" /d:sonar.login="${{ secrets.SONAR_TOKEN }}" /d:sonar.host.url="https://sonarcloud.io"
+          <insert_your_build_command>
+          .\.sonar\scanner\dotnet-sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
